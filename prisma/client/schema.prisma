@@ -1,0 +1,96 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+  output = "./client"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  schemas   = ["next_auth", "public"]
+}
+
+model Account {
+  id                String  @id
+  userId            String  @db.Uuid
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@schema("next_auth")
+}
+
+model Session {
+  id           String   @id
+  sessionToken String   @unique
+  userId       String   @db.Uuid
+  expires      DateTime
+  User         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@schema("next_auth")
+}
+
+model User {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  role          String? @default("user")
+  Account       Account[]
+  Session       Session[]
+  Redlink       Redlink[]
+
+  @@schema("next_auth")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@schema("next_auth")
+}
+
+model Click {
+  timestamp  DateTime @default(now())
+  ipAddress  String?
+  referrer   String?
+  userAgent  String?
+  location   String?
+  os         String?
+  deviceType String?
+  browser    String?
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  linkId     String?  @db.Uuid
+  Redlink    Redlink? @relation(fields: [linkId], references: [id])
+
+  @@schema("public")
+}
+
+model Redlink {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String?
+  url       String
+  os        String?
+  createdAt DateTime? @db.Timestamptz(6)
+  updatedAt DateTime? @db.Timestamptz(6)
+  userId    String?   @db.Uuid
+  shortCode String    @unique
+  Click     Click[]
+  User      User?     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@schema("public")
+}
